@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Froggy Pond Jump</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0ea5e9; /* Sky blue water */
+            overflow: hidden;
+            touch-action: none; /* Prevent scroll on touch devices */
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            background-color: #38bdf8;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas container */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+        
+        /* Custom slider styling */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #cbd5e1;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #cbd5e1;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800">
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-layer p-4">
+        <div class="flex justify-between items-start pointer-events-none w-full max-w-md mx-auto lg:justify-center">
+            <div class="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full font-bold text-xl text-sky-900 shadow-sm border border-white/50 pointer-events-auto">
+                Score: <span id="scoreDisplay">0</span>
+            </div>
+            <div class="lg:hidden bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full font-bold text-xl text-emerald-900 shadow-sm border border-white/50 ml-4 pointer-events-auto">
+                Best: <span id="highScoreDisplayMobile">0</span>
+            </div>
+        </div>
+
+        <!-- High Score Panel (Right Side) -->
+        <div class="absolute right-4 top-[15%] bg-white/90 backdrop-blur-md px-6 py-4 rounded-3xl shadow-xl border-2 border-emerald-400 hidden lg:flex flex-col items-center gap-1 pointer-events-auto transition-transform hover:scale-105 cursor-default">
+            <span class="text-sm font-bold text-emerald-600 uppercase tracking-widest">High Score</span>
+            <span id="highScoreDisplay" class="text-4xl font-black text-emerald-900">0</span>
+        </div>
+
+        <!-- Wise Toad Panel (Gemini AI) -->
+        <div id="toadPanel" class="absolute right-4 top-1/3 mt-12 w-64 bg-white/90 backdrop-blur-md p-5 rounded-3xl shadow-xl border-2 border-emerald-400 hidden lg:flex flex-col gap-2 pointer-events-auto transition-opacity duration-300">
+            <div class="flex items-center gap-3 border-b border-emerald-100 pb-3">
+                <span class="text-4xl">🐸</span>
+                <h3 class="font-bold text-emerald-800 text-lg leading-tight">Wise Toad's<br/>Analysis</h3>
+            </div>
+            <p id="toadMessage" class="text-sm text-gray-700 italic min-h-[3rem] mt-2 font-medium">"Jump, little tadpole, jump! Let's see what you've got."</p>
+            <div id="toadLoading" class="hidden text-xs text-emerald-600 font-bold animate-pulse mt-2 bg-emerald-50 p-2 rounded-lg text-center">Consulting the pond spirits...</div>
+        </div>
+
+        <!-- Positive Snail Panel (Left Side) -->
+        <div id="snailPanel" class="absolute left-12 top-[5%] w-48 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border-2 border-pink-400 hidden lg:flex flex-col gap-1 pointer-events-auto transition-transform hover:scale-105 cursor-default">
+            <div class="flex items-center gap-2 border-b border-pink-100 pb-2">
+                <span class="text-2xl">🐌</span>
+                <h3 class="font-bold text-pink-800 text-sm leading-tight">Positive Snail's<br/>Cheers</h3>
+            </div>
+            <p id="snailMessage" class="text-xs text-gray-700 italic min-h-[2.5rem] mt-1 font-medium">"You're doing great! Take it one jump at a time!"</p>
+            <div id="snailLoading" class="hidden text-[10px] text-pink-600 font-bold animate-pulse mt-1 bg-pink-50 p-1.5 rounded-lg text-center">Thinking of nice things...</div>
+        </div>
+        
+        <!-- Legend Panel (Left Side) -->
+        <div class="absolute left-4 bottom-20 w-64 bg-white/90 backdrop-blur-md p-5 rounded-3xl shadow-xl border-2 border-sky-400 hidden lg:flex flex-col gap-3 pointer-events-auto cursor-default transition-transform hover:scale-105">
+            <h3 class="font-bold text-sky-800 text-sm border-b border-sky-100 pb-2 text-center uppercase tracking-widest">Pond Legend</h3>
+            <ul class="text-sm text-gray-700 space-y-2 font-medium mt-1">
+                <li class="flex items-center gap-3"><span class="text-2xl drop-shadow-sm">⬆️</span> <span><strong>Jump:</strong> +1 pt / 10px</span></li>
+                <li class="flex items-center gap-3"><span class="text-2xl drop-shadow-sm">🪰</span> <span><strong>Bug:</strong> +200 pts</span></li>
+                <li class="flex items-center gap-3"><span class="text-2xl drop-shadow-sm">✨</span> <span class="leading-tight"><strong>Firefly:</strong> +500 pts <br><span class="text-xs text-amber-500 font-bold">4s Invincibility</span></span></li>
+                <li class="flex items-center gap-3 pt-2 border-t border-sky-50"><span class="text-2xl drop-shadow-sm">🦅</span> <span class="text-red-500"><strong>Bird:</strong> Game Over!</span></li>
+                <li class="flex items-center gap-3 pt-2 border-t border-sky-50"><span class="text-2xl drop-shadow-sm">🟢</span> <span><strong>Lily Pad:</strong> Safe</span></li>
+                <li class="flex items-center gap-3"><span class="text-2xl drop-shadow-sm">🪵</span> <span><strong>Log:</strong> Moving</span></li>
+            </ul>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pauseScreen" class="hidden absolute inset-0 bg-sky-900/40 backdrop-blur-sm pointer-events-auto flex items-center justify-center z-40">
+            <h2 class="text-5xl font-black text-white tracking-widest uppercase drop-shadow-lg">Paused</h2>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="hidden absolute inset-0 bg-sky-900/60 backdrop-blur-sm pointer-events-auto flex flex-col items-center justify-center z-50">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm w-11/12 transform transition-all">
+                <div class="text-5xl mb-4">🐸💦</div>
+                <h2 class="text-3xl font-extrabold text-gray-800 mb-2">Splash!</h2>
+                <p class="text-gray-500 mb-6">You fell into the deep pond.</p>
+                <div class="bg-sky-50 rounded-xl p-4 mb-4">
+                    <p class="text-sm text-sky-700 font-semibold uppercase tracking-wider mb-1">Final Score</p>
+                    <p class="text-4xl font-black text-sky-600" id="finalScoreDisplay">0</p>
+                </div>
+                <div class="bg-amber-50 rounded-xl p-3 mb-6 shadow-inner min-h-[3.5rem] flex items-center justify-center">
+                    <p class="text-sm text-amber-800 font-bold italic text-center" id="heroicTitleDisplay">Earning legacy...</p>
+                </div>
+                <button id="restartBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-emerald-500/30 transition-colors text-lg mb-3">
+                    Play Again
+                </button>
+                <button id="menuBtn" class="w-full bg-sky-100 hover:bg-sky-200 active:bg-sky-300 text-sky-800 font-bold py-3 px-6 rounded-xl shadow-sm transition-colors text-md">
+                    Menu & Change Frog
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="absolute inset-0 bg-sky-900/40 backdrop-blur-sm pointer-events-auto flex flex-col items-center justify-center z-50">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm w-11/12">
+                <div class="text-6xl mb-4">🐸</div>
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-4">Froggy Jump</h1>
+                <p class="text-gray-600 mb-4 text-sm">Bounce on lily pads and logs. Eat bugs for extra points. Don't fall!</p>
+                <div class="bg-sky-50 p-3 rounded-xl mb-4 shadow-inner min-h-[4rem] flex items-center justify-center">
+                    <p id="pondProverb" class="text-sm text-sky-800 italic font-medium animate-pulse text-center">Consulting the pond oracle...</p>
+                </div>
+                
+                <!-- NEW FROG SELECTOR -->
+                <div class="mb-4">
+                    <p class="text-xs text-gray-500 font-bold mb-2 uppercase tracking-wider">Select your Frog</p>
+                    <div class="flex justify-center items-center gap-4 mb-3" id="frogSelector">
+                        <div class="flex-1 max-w-[200px]">
+                            <input type="range" id="frogHueSlider" min="0" max="360" value="135" class="w-full h-4 rounded-full appearance-none cursor-pointer shadow-inner border border-gray-300/50" style="background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); outline: none;">
+                        </div>
+                        <button id="keroppiBtn" class="w-10 h-10 shrink-0 rounded-full bg-white border-2 border-dashed border-gray-400 shadow-md transform hover:scale-110 transition-transform flex items-center justify-center opacity-50 cursor-not-allowed" data-frog="keroppi" title="Score 1000 to unlock!">
+                            <span class="text-xl">🔒</span>
+                        </button>
+                    </div>
+                    
+                    <!-- NEW DESIGN SELECTOR -->
+                    <div class="flex justify-center gap-2" id="designSelector">
+                        <button class="design-btn active px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg border-2 border-emerald-400 text-xs font-bold transition-colors" data-design="classic">Classic</button>
+                        <button class="design-btn px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg border-2 border-transparent text-xs font-bold transition-colors hover:bg-gray-200" data-design="spotted">Spotted</button>
+                        <button class="design-btn px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg border-2 border-transparent text-xs font-bold transition-colors hover:bg-gray-200" data-design="ninja">Ninja</button>
+                        <button class="design-btn px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg border-2 border-transparent text-xs font-bold transition-colors hover:bg-gray-200" data-design="striped">Striped</button>
+                    </div>
+                </div>
+
+                <div class="flex justify-center gap-4 mb-6 text-xs text-gray-500 font-medium bg-gray-50 p-3 rounded-lg">
+                    <div>⌨️ Arrow Keys / Space to Pause</div>
+                    <div>👆 Tap L/R Sides</div>
+                </div>
+                <button id="startBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-emerald-500/30 transition-colors text-lg">
+                    Start Jumping
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const highScoreDisplay = document.getElementById('highScoreDisplay');
+    const finalScoreDisplay = document.getElementById('finalScoreDisplay');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startScreen = document.getElementById('startScreen');
+    const pauseScreen = document.getElementById('pauseScreen');
+    const restartBtn = document.getElementById('restartBtn');
+    const startBtn = document.getElementById('startBtn');
+    const menuBtn = document.getElementById('menuBtn');
+
+    const pondProverb = document.getElementById('pondProverb');
+    const heroicTitleDisplay = document.getElementById('heroicTitleDisplay');
+
+    const toadMessage = document.getElementById('toadMessage');
+    const toadLoading = document.getElementById('toadLoading');
+    
+    const snailMessage = document.getElementById('snailMessage');
+    const snailLoading = document.getElementById('snailLoading');
+
+    // Game Constants & Variables
+    const LOGICAL_WIDTH = 400;
+    const LOGICAL_HEIGHT = 600;
+    
+    let gameState = 'START'; // START, PLAYING, GAMEOVER
+    let animationId;
+    let cameraY = 0;
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('frogJumpHighScore')) || 0;
+    let highestY = 0;
+    let bugsEaten = 0;
+    let invincibleFrames = 0;
+    let rowsProgressed = 0;
+    let selectedFrogStyle = 'custom';
+    let frogHue = 135; // Default green hue
+    let frogDesign = 'classic'; // 'classic', 'spotted', 'ninja'
+
+    let keys = { left: false, right: false };
+    let touchX = null;
+
+    // Entities
+    let frog = {};
+    let platforms = [];
+    let bugs = [];
+    let birds = [];
+    let fireflies = [];
+    let particles = [];
+
+    // --- Resize Canvas to fit screen but keep aspect ratio roughly ---
+    function resizeCanvas() {
+        const container = document.getElementById('game-container');
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+        
+        // Mobile full screen vs desktop constraint
+        const ratio = LOGICAL_WIDTH / LOGICAL_HEIGHT;
+        let newW = cw;
+        let newH = ch;
+
+        // On larger screens, constrain to logical width
+        if (cw > LOGICAL_WIDTH) {
+            newW = LOGICAL_WIDTH;
+            newH = Math.min(ch, 800); // Max height limit
+        }
+
+        canvas.width = newW;
+        canvas.height = newH;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- Inputs ---
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'ArrowLeft') keys.left = true;
+        if (e.code === 'ArrowRight') keys.right = true;
+        if (e.code === 'Space') {
+            e.preventDefault(); // Prevent page scrolling down
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseScreen.classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseScreen.classList.add('hidden');
+                gameLoop(); // Resume loop
+            }
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'ArrowLeft') keys.left = false;
+        if (e.code === 'ArrowRight') keys.right = false;
+    });
+
+    // Touch/Mouse controls
+    const handlePointerDown = (e) => {
+        if (gameState !== 'PLAYING') return;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const x = clientX - rect.left;
+        touchX = x;
+    };
+    const handlePointerUp = () => { touchX = null; };
+    const handlePointerMove = (e) => {
+        if (touchX !== null && gameState === 'PLAYING') {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            touchX = clientX - rect.left;
+        }
+    };
+
+    canvas.addEventListener('mousedown', handlePointerDown);
+    canvas.addEventListener('mouseup', handlePointerUp);
+    canvas.addEventListener('mousemove', handlePointerMove);
+    canvas.addEventListener('touchstart', handlePointerDown, {passive: true});
+    canvas.addEventListener('touchend', handlePointerUp, {passive: true});
+    canvas.addEventListener('touchmove', handlePointerMove, {passive: true});
+
+    // --- Game Logic ---
+    function initGame() {
+        resizeCanvas();
+        score = 0;
+        bugsEaten = 0;
+        highestY = 0;
+        cameraY = 0;
+        invincibleFrames = 0;
+        rowsProgressed = 0;
+        
+        const cw = canvas.width;
+        const ch = canvas.height;
+
+        frog = {
+            x: cw / 2,
+            y: ch - 100,
+            vx: 0,
+            vy: 0,
+            radius: 15,
+            jumpStrength: -12,
+            gravity: 0.4,
+            speed: 6
+        };
+
+        platforms = [];
+        bugs = [];
+        birds = [];
+        fireflies = [];
+        particles = [];
+
+        // Generate initial platforms
+        platforms.push(createPlatform(cw / 2 - 40, ch - 20, 80, 'pad')); // Base platform
+        
+        let currentY = ch - 120;
+        while (currentY > -ch) {
+            spawnPlatform(currentY);
+            currentY -= Math.random() * 60 + 50; // Random gap
+        }
+
+        gameState = 'PLAYING';
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        pauseScreen.classList.add('hidden');
+        updateScore();
+        
+        if (animationId) cancelAnimationFrame(animationId);
+        gameLoop();
+    }
+
+    function createPlatform(x, y, width, type) {
+        let speed = 0;
+        let direction = 1;
+        if (type === 'log') {
+            speed = Math.random() * 2 + 1;
+            direction = Math.random() > 0.5 ? 1 : -1;
+        }
+        return { x, y, width, height: 15, type, speed, direction, active: true };
+    }
+
+    function spawnPlatform(y) {
+        const cw = canvas.width;
+        const width = Math.random() * 40 + 50; // 50 to 90
+        const x = Math.random() * (cw - width);
+        const type = Math.random() > 0.3 ? 'pad' : 'log'; // 70% pad, 30% log
+        
+        platforms.push(createPlatform(x, y, width, type));
+
+        // 20% chance to spawn a bug on the platform
+        if (Math.random() < 0.2) {
+            bugs.push({
+                x: x + width / 2,
+                y: y - 15,
+                radius: 6,
+                active: true,
+                baseY: y - 15,
+                floatOffset: Math.random() * Math.PI * 2
+            });
+        }
+    }
+
+    function spawnBird(y) {
+        const cw = canvas.width;
+        const direction = Math.random() > 0.5 ? 1 : -1;
+        const x = direction === 1 ? -30 : cw + 30;
+        birds.push({ x, y, width: 24, height: 16, vx: direction * (Math.random() * 2 + 2), active: true, frame: 0 });
+    }
+
+    function spawnFirefly(y) {
+        const cw = canvas.width;
+        fireflies.push({ x: cw/2, y: y, baseX: cw/2, radius: 5, active: true, floatOffset: Math.random() * Math.PI * 2, speed: Math.random() * 0.03 + 0.02, span: cw/2 - 20 });
+    }
+
+    function createSplash(x, y) {
+        for (let i = 0; i < 15; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 5,
+                vy: (Math.random() - 1) * 5,
+                life: 1.0,
+                decay: 0.03 + Math.random() * 0.05
+            });
+        }
+    }
+
+    function update() {
+        const cw = canvas.width;
+        const ch = canvas.height;
+
+        // Frog Input
+        frog.vx = 0;
+        if (keys.left) frog.vx = -frog.speed;
+        if (keys.right) frog.vx = frog.speed;
+        
+        if (touchX !== null) {
+            if (touchX < cw / 2) frog.vx = -frog.speed;
+            else frog.vx = frog.speed;
+        }
+
+        // Frog Physics
+        frog.x += frog.vx;
+        frog.vy += frog.gravity;
+        frog.y += frog.vy;
+
+        // Screen wrap
+        if (frog.x < -frog.radius) frog.x = cw + frog.radius;
+        if (frog.x > cw + frog.radius) frog.x = -frog.radius;
+
+        // Camera follow
+        if (frog.y < cameraY + ch / 2) {
+            cameraY = frog.y - ch / 2;
+        }
+
+        if (highestY === 0) highestY = frog.y; // Initialize highest point
+
+        // Generate new platforms as camera moves up
+        let minPlatformY = platforms.length > 0 ? Math.min(...platforms.map(p => p.y)) : cameraY;
+        while (minPlatformY > cameraY - 200) {
+            minPlatformY -= (Math.random() * 60 + 50); // Random gap
+            spawnPlatform(minPlatformY);
+        }
+
+        // Update Score based on height and manage rows for enemies/powerups
+        if (frog.y < highestY) {
+            highestY = frog.y;
+            let heightScore = Math.floor((ch - 100 - highestY) / 10);
+            if (heightScore > 0) {
+                let newScore = heightScore + (bugsEaten * 200);
+                if (newScore > score) {
+                    score = newScore;
+                    updateScore();
+                }
+
+                let currentRows = Math.floor((ch - 100 - highestY) / 100);
+                if (currentRows > rowsProgressed) {
+                    rowsProgressed = currentRows;
+                    
+                    // Spawn birds based on progression
+                    if (rowsProgressed % 3 === 0) {
+                        let birdChance = 0.01 * Math.pow(1.5, rowsProgressed);
+                        if (Math.random() < birdChance) {
+                            spawnBird(cameraY - 50);
+                        }
+                    }
+
+                    // Spawn fireflies based on progression
+                    if (rowsProgressed % 10 === 0) {
+                        let fireflyChance = 0.5 * Math.pow(0.5, (rowsProgressed / 10) - 1);
+                        if (Math.random() < fireflyChance) {
+                            spawnFirefly(cameraY - 50);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Platform collision & update
+        for (let i = 0; i < platforms.length; i++) {
+            let p = platforms[i];
+            
+            // Move logs
+            if (p.type === 'log') {
+                p.x += p.speed * p.direction;
+                if (p.x < 0 || p.x + p.width > cw) {
+                    p.direction *= -1; // Bounce off walls
+                }
+            }
+
+            // Fall through platform logic (only bounce if falling)
+            if (frog.vy > 0) {
+                // Check if frog crosses the platform boundary
+                if (frog.x + frog.radius > p.x && 
+                    frog.x - frog.radius < p.x + p.width && 
+                    frog.y + frog.radius > p.y && 
+                    frog.y - frog.radius - frog.vy <= p.y) { // Was above it last frame
+                    
+                    frog.y = p.y - frog.radius; // Snap to top
+                    frog.vy = frog.jumpStrength; // Bounce
+                    createSplash(frog.x, p.y);
+                }
+            }
+        }
+
+        // Bug collision
+        for (let i = 0; i < bugs.length; i++) {
+            let b = bugs[i];
+            if (!b.active) continue;
+            
+            // Float animation
+            b.floatOffset += 0.05;
+            b.y = b.baseY + Math.sin(b.floatOffset) * 4;
+
+            // Simple distance collision
+            let dx = frog.x - b.x;
+            let dy = frog.y - b.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < frog.radius + b.radius) {
+                b.active = false;
+                bugsEaten++;
+                score += 200;
+                updateScore();
+            }
+        }
+
+        // Firefly collision & update
+        for (let i = 0; i < fireflies.length; i++) {
+            let f = fireflies[i];
+            if (!f.active) continue;
+            
+            f.floatOffset += f.speed;
+            f.x = f.baseX + Math.sin(f.floatOffset) * f.span;
+
+            let dx = frog.x - f.x;
+            let dy = frog.y - f.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < frog.radius + f.radius) {
+                f.active = false;
+                score += 500;
+                updateScore();
+                invincibleFrames = 240; // 4 seconds invincibility (60 fps)
+            }
+        }
+
+        // Bird update & collision
+        for (let i = 0; i < birds.length; i++) {
+            let b = birds[i];
+            if (!b.active) continue;
+            
+            b.x += b.vx;
+            b.frame++;
+
+            if (invincibleFrames <= 0) {
+                // Rect/Circle collision bounds
+                let testX = Math.max(b.x - b.width/2, Math.min(frog.x, b.x + b.width/2));
+                let testY = Math.max(b.y - b.height/2, Math.min(frog.y, b.y + b.height/2));
+                let distX = frog.x - testX;
+                let distY = frog.y - testY;
+                let distance = Math.sqrt((distX*distX) + (distY*distY));
+
+                if (distance <= frog.radius) {
+                    gameState = 'GAMEOVER';
+                    gameOver();
+                }
+            }
+        }
+
+        if (invincibleFrames > 0) invincibleFrames--;
+
+        // Manage off-screen entities
+        platforms = platforms.filter(p => p.y < cameraY + ch + 50);
+        bugs = bugs.filter(b => b.y < cameraY + ch + 50 && b.active);
+        // Manage off-screen entities for birds and fireflies
+        birds = birds.filter(b => (b.vx > 0 ? b.x < cw + 100 : b.x > -100) && b.active);
+        fireflies = fireflies.filter(f => f.y < cameraY + ch + 50 && f.active);
+
+        // Check if frog fell off the bottom of the screen
+        if (frog.y > cameraY + ch + frog.radius) {
+            gameState = 'GAMEOVER';
+            gameOver();
+        }
+    }
+
+    function draw() {
+        const cw = canvas.width;
+        const ch = canvas.height;
+
+        // Clear Background
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(0, 0, cw, ch);
+
+        ctx.save();
+        ctx.translate(0, -cameraY); // Apply camera offset
+
+        // Draw Platforms
+        for (let i = 0; i < platforms.length; i++) {
+            let p = platforms[i];
+            if (p.type === 'pad') {
+                ctx.fillStyle = '#4ade80';
+                ctx.beginPath();
+                ctx.ellipse(p.x + p.width/2, p.y + p.height/2, p.width/2, p.height, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Lily pad slice cutout
+                ctx.fillStyle = '#38bdf8'; 
+                ctx.beginPath();
+                ctx.moveTo(p.x + p.width/2, p.y + p.height/2);
+                ctx.lineTo(p.x + p.width, p.y - p.height);
+                ctx.lineTo(p.x + p.width, p.y + p.height*2);
+                ctx.fill();
+
+            } else {
+                // Log
+                ctx.fillStyle = '#78350f';
+                ctx.beginPath();
+                ctx.roundRect(p.x, p.y, p.width, p.height, 8);
+                ctx.fill();
+                
+                // Log lines
+                ctx.strokeStyle = '#92400e';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p.x + 10, p.y + 4); ctx.lineTo(p.x + p.width - 10, p.y + 4);
+                ctx.moveTo(p.x + 5, p.y + 10); ctx.lineTo(p.x + p.width - 5, p.y + 10);
+                ctx.stroke();
+            }
+        }
+
+        // Draw Bugs
+        for (let b of bugs) {
+            if (!b.active) continue;
+            ctx.fillStyle = '#1e293b'; // Dark
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+            ctx.fill();
+            // Little wings
+            ctx.fillStyle = '#f8fafc';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath(); ctx.ellipse(b.x - 4, b.y - 4, 5, 2, -Math.PI/4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(b.x + 4, b.y - 4, 5, 2, Math.PI/4, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Draw Fireflies
+        for (let f of fireflies) {
+            if (!f.active) continue;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fef08a';
+            ctx.fillStyle = '#fef08a'; // yellow
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // tiny wings
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            let flap = Math.sin(f.floatOffset * 20) * 3;
+            ctx.beginPath(); ctx.ellipse(f.x - 4, f.y - 3 - flap, 4, 2, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(f.x + 4, f.y - 3 - flap, 4, 2, Math.PI/6, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Draw Birds
+        for (let b of birds) {
+            if (!b.active) continue;
+            ctx.fillStyle = '#dc2626'; // Red
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.height/2, 0, Math.PI*2);
+            ctx.fill();
+            // Beak
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            if (b.vx > 0) {
+                ctx.moveTo(b.x + b.height/2, b.y - 3);
+                ctx.lineTo(b.x + b.height/2 + 8, b.y);
+                ctx.lineTo(b.x + b.height/2, b.y + 3);
+            } else {
+                ctx.moveTo(b.x - b.height/2, b.y - 3);
+                ctx.lineTo(b.x - b.height/2 - 8, b.y);
+                ctx.lineTo(b.x - b.height/2, b.y + 3);
+            }
+            ctx.fill();
+            // Wings
+            ctx.fillStyle = '#991b1b';
+            let flap = Math.sin(b.frame * 0.4) * 6;
+            ctx.beginPath();
+            ctx.ellipse(b.x, b.y - 4 + flap, 10, 4, 0, 0, Math.PI*2);
+            ctx.fill();
+            // Eye
+            ctx.fillStyle = 'white';
+            let eyeX = b.vx > 0 ? b.x + 4 : b.x - 4;
+            ctx.beginPath(); ctx.arc(eyeX, b.y - 3, 3, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(eyeX + (b.vx > 0 ? 1 : -1), b.y - 3, 1.5, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Draw Particles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        for(let i = particles.length - 1; i >= 0; i--) {
+            let pt = particles[i];
+            pt.x += pt.vx;
+            pt.y += pt.vy;
+            pt.life -= pt.decay;
+            if(pt.life <= 0) {
+                particles.splice(i, 1);
+            } else {
+                ctx.globalAlpha = pt.life;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Draw Frog
+        ctx.save();
+        ctx.translate(frog.x, frog.y);
+        
+        // Invincibility Aura
+        if (invincibleFrames > 0) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#fde047';
+            ctx.fillStyle = 'rgba(253, 224, 71, 0.4)';
+            ctx.beginPath();
+            ctx.arc(0, 0, frog.radius + 6 + Math.sin(Date.now() / 150) * 3, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset
+        }
+
+        // Squeeze/Stretch based on velocity for juiciness
+        let stretch = Math.max(0.8, Math.min(1.2, 1 + frog.vy * 0.02));
+        let squeeze = Math.max(0.8, Math.min(1.2, 1 - frog.vy * 0.02));
+        ctx.scale(squeeze, stretch);
+
+        if (selectedFrogStyle === 'keroppi') {
+            // Legs
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath(); ctx.ellipse(-12, 10, 8, 4, -Math.PI/6, 0, Math.PI * 2); ctx.fill(); // L
+            ctx.beginPath(); ctx.ellipse(12, 10, 8, 4, Math.PI/6, 0, Math.PI * 2); ctx.fill();  // R
+
+            // Body
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath(); ctx.arc(0, 0, frog.radius, 0, Math.PI * 2); ctx.fill();
+            // Belly overlay
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.ellipse(0, 2, frog.radius - 2, frog.radius - 3, 0, 0, Math.PI * 2); ctx.fill();
+            
+            // Big Eyes
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(-7, -12, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7, -12, 6, 0, Math.PI*2); ctx.fill();
+            
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(-7, -12, 6, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(7, -12, 6, 0, Math.PI*2); ctx.stroke();
+
+            // Pupils
+            ctx.fillStyle = 'black';
+            let lookDir = (frog.vx / frog.speed) * 3;
+            ctx.beginPath(); ctx.arc(-7 + lookDir, -12, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7 + lookDir, -12, 2.5, 0, Math.PI*2); ctx.fill();
+
+            // Cheeks
+            ctx.fillStyle = '#f472b6';
+            ctx.beginPath(); ctx.ellipse(-9, 0, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(9, 0, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+
+            // V Smile
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-3, 3);
+            ctx.lineTo(0, 6);
+            ctx.lineTo(3, 3);
+            ctx.stroke();
+
+        } else {
+            let bodyColor = `hsl(${frogHue}, 70%, 45%)`; 
+            let legColor = `hsl(${frogHue}, 80%, 35%)`;
+
+            // Legs
+            ctx.fillStyle = legColor;
+            ctx.beginPath(); ctx.ellipse(-12, 10, 8, 4, -Math.PI/6, 0, Math.PI * 2); ctx.fill(); // L
+            ctx.beginPath(); ctx.ellipse(12, 10, 8, 4, Math.PI/6, 0, Math.PI * 2); ctx.fill();  // R
+
+            // Body
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, frog.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (frogDesign === 'spotted') {
+                ctx.fillStyle = `hsl(${frogHue}, 90%, 20%)`; // Darker spots
+                ctx.beginPath(); ctx.arc(-5, -2, 2.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(4, -4, 2.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, 4, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(-6, 6, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(6, 5, 2, 0, Math.PI*2); ctx.fill();
+            }
+
+            if (frogDesign === 'ninja') {
+                ctx.fillStyle = '#1e293b'; // Dark slate mask
+                ctx.beginPath();
+                ctx.fillRect(-frog.radius, -13, frog.radius * 2, 8); // Headband mask
+                // Headband knot tails
+                ctx.beginPath(); ctx.ellipse(-frog.radius - 2, -10, 5, 2, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(-frog.radius - 3, -6, 6, 2, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+            }
+
+            if (frogDesign === 'striped') {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(0, 0, frog.radius, 0, Math.PI * 2);
+                ctx.clip(); // Keep stripes perfectly inside the frog's body
+
+                ctx.fillStyle = `hsl(${frogHue}, 90%, 20%)`; // Darker stripes
+                // Draw 3 vertical stripes stretching across the whole radius
+                ctx.fillRect(-7.5, -frog.radius, 3, frog.radius * 2);
+                ctx.fillRect(-1.5, -frog.radius, 3, frog.radius * 2);
+                ctx.fillRect(4.5, -frog.radius, 3, frog.radius * 2);
+
+                ctx.restore();
+            }
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(-7, -10, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7, -10, 6, 0, Math.PI*2); ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            let lookDir = (frog.vx / frog.speed) * 3;
+            ctx.beginPath(); ctx.arc(-7 + lookDir, -10, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7 + lookDir, -10, 2.5, 0, Math.PI*2); ctx.fill();
+
+            // Smile
+            ctx.strokeStyle = '#14532d';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 2, 6, 0, Math.PI);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        ctx.restore(); // Restore camera translation
+    }
+
+    function gameLoop() {
+        if (gameState === 'PLAYING') {
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function updateScore() {
+        scoreDisplay.textContent = Math.floor(score);
+        if (score > highScore) {
+            highScore = score;
+            highScoreDisplay.textContent = Math.floor(highScore);
+            let mobileDisplay = document.getElementById('highScoreDisplayMobile');
+            if (mobileDisplay) mobileDisplay.textContent = Math.floor(highScore);
+        }
+    }
+
+    function gameOver() {
+        if (score >= highScore) {
+            localStorage.setItem('frogJumpHighScore', Math.floor(highScore));
+            updateFrogSelector(); // Update UI if Keroppi was just unlocked!
+        }
+        finalScoreDisplay.textContent = Math.floor(score);
+        gameOverScreen.classList.remove('hidden');
+        
+        // Call the Gemini LLMs
+        fetchToadWisdom(Math.floor(score), bugsEaten);
+        fetchSnailCheer(Math.floor(score), bugsEaten);
+        fetchHeroicTitle(Math.floor(score), bugsEaten);
+    }
+
+    async function fetchToadWisdom(finalScore, bugs) {
+        toadMessage.classList.add('hidden');
+        toadLoading.classList.remove('hidden');
+        
+        const systemPrompt = "You are a wise, slightly grumpy, and sarcastic old toad. You are watching a young frog jump across a pond. Keep it brief (1-2 sentences).";
+        const userQuery = `The young frog just fell in the pond! They scored ${finalScore} points and ate ${bugs} bugs before falling. Give them a short, humorous performance review.`;
+        const apiKey = ""; // Canvas handles API keys securely at runtime
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                let aiText = candidate.content.parts[0].text.trim();
+                // Remove surrounding quotes if the AI adds them
+                aiText = aiText.replace(/^["']|["']$/g, '');
+                toadMessage.textContent = '"' + aiText + '"';
+            } else {
+                toadMessage.textContent = '"Even the wisest toad has no words for that performance."';
+            }
+        } catch (error) {
+            toadMessage.textContent = '"The pond spirits are quiet today."';
+        } finally {
+            toadLoading.classList.add('hidden');
+            toadMessage.classList.remove('hidden');
+        }
+    }
+
+    async function fetchSnailCheer(finalScore, bugs) {
+        snailMessage.classList.add('hidden');
+        snailLoading.classList.remove('hidden');
+        
+        const systemPrompt = "You are a relentlessly positive, sweet, and encouraging snail. Keep it brief (1-2 sentences).";
+        const userQuery = `The young frog just fell in the pond. They scored ${finalScore} points and ate ${bugs} bugs. Give them a sweet, encouraging message to cheer them up and motivate them for the next try!`;
+        const apiKey = ""; // Canvas handles API keys securely at runtime
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                let aiText = candidate.content.parts[0].text.trim();
+                aiText = aiText.replace(/^["']|["']$/g, '');
+                snailMessage.textContent = '"' + aiText + '"';
+            } else {
+                snailMessage.textContent = '"Every fall is just a chance to jump even higher next time!"';
+            }
+        } catch (error) {
+            snailMessage.textContent = '"You did your best, and that is absolutely wonderful!"';
+        } finally {
+            snailLoading.classList.add('hidden');
+            snailMessage.classList.remove('hidden');
+        }
+    }
+
+    async function fetchPondProverb() {
+        pondProverb.textContent = 'Consulting the pond oracle...';
+        pondProverb.classList.add('animate-pulse');
+        
+        const systemPrompt = "You are a mystical pond oracle. Give a short, one-sentence funny prophecy or proverb for a frog about to start jumping on lily pads.";
+        const userQuery = "Give me a proverb.";
+        const apiKey = ""; // Canvas handles API keys securely at runtime
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                pondProverb.textContent = '"' + candidate.content.parts[0].text.trim().replace(/^["']|["']$/g, '') + '"';
+            } else {
+                pondProverb.textContent = '"Look before you leap, but always leap."';
+            }
+        } catch (error) {
+            pondProverb.textContent = '"The pond is mysterious today."';
+        } finally {
+            pondProverb.classList.remove('animate-pulse');
+        }
+    }
+
+    async function fetchHeroicTitle(finalScore, bugs) {
+        heroicTitleDisplay.textContent = 'Earning legacy...';
+        heroicTitleDisplay.classList.add('animate-pulse');
+        
+        const systemPrompt = "You are a medieval herald for a pond. Give a short, funny, 2-to-4 word heroic title for a frog. Return ONLY the title without quotes.";
+        const userQuery = `A frog just died scoring ${finalScore} points and eating ${bugs} bugs. Give them a title!`;
+        const apiKey = ""; // Canvas handles API keys securely at runtime
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                heroicTitleDisplay.textContent = candidate.content.parts[0].text.trim().replace(/^["']|["']$/g, '');
+            } else {
+                heroicTitleDisplay.textContent = 'The Average Hopper';
+            }
+        } catch (error) {
+            heroicTitleDisplay.textContent = 'The Unknown Jumper';
+        } finally {
+            heroicTitleDisplay.classList.remove('animate-pulse');
+        }
+    }
+
+    // Event Listeners for UI
+    startBtn.addEventListener('click', initGame);
+    restartBtn.addEventListener('click', initGame);
+    menuBtn.addEventListener('click', () => {
+        gameOverScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+        updateFrogSelector();
+    });
+
+    function updateFrogSelector() {
+        const keroppiBtn = document.getElementById('keroppiBtn');
+        if (!keroppiBtn) return;
+        
+        if (highScore >= 1000) {
+            keroppiBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'border-dashed', 'border-gray-400');
+            keroppiBtn.classList.add('border-transparent');
+            keroppiBtn.title = "Keroppi Unlocked!";
+            keroppiBtn.innerHTML = '<span class="text-xl">🐸</span>';
+        }
+        
+        if (selectedFrogStyle === 'keroppi') {
+            keroppiBtn.classList.add('border-4', 'border-emerald-700');
+            keroppiBtn.classList.remove('border-2', 'border-transparent', 'border-dashed', 'border-gray-400');
+        } else {
+            keroppiBtn.classList.remove('border-4', 'border-emerald-700');
+            if (highScore < 1000) {
+                keroppiBtn.classList.add('border-2', 'border-dashed', 'border-gray-400');
+            } else {
+                keroppiBtn.classList.add('border-2', 'border-transparent');
+            }
+        }
+    }
+
+    // Initialization
+    window.onload = () => {
+        resizeCanvas();
+        highScoreDisplay.textContent = Math.floor(highScore);
+        let mobileDisplay = document.getElementById('highScoreDisplayMobile');
+        if (mobileDisplay) mobileDisplay.textContent = Math.floor(highScore);
+        
+        const hueSlider = document.getElementById('frogHueSlider');
+        if (hueSlider) {
+            hueSlider.addEventListener('input', (e) => {
+                frogHue = e.target.value;
+                selectedFrogStyle = 'custom';
+                updateFrogSelector();
+            });
+        }
+
+        const keroppiBtn = document.getElementById('keroppiBtn');
+        if (keroppiBtn) {
+            keroppiBtn.addEventListener('click', () => {
+                if (highScore >= 1000) {
+                    selectedFrogStyle = 'keroppi';
+                    updateFrogSelector();
+                }
+            });
+        }
+        
+        // Setup Design Buttons
+        const designBtns = document.querySelectorAll('.design-btn');
+        designBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Reset all buttons visually
+                designBtns.forEach(b => {
+                    b.classList.remove('bg-emerald-100', 'text-emerald-800', 'border-emerald-400');
+                    b.classList.add('bg-gray-100', 'text-gray-500', 'border-transparent');
+                });
+                
+                // Set the clicked one to active
+                const target = e.target;
+                target.classList.remove('bg-gray-100', 'text-gray-500', 'border-transparent');
+                target.classList.add('bg-emerald-100', 'text-emerald-800', 'border-emerald-400');
+                frogDesign = target.dataset.design;
+                
+                // If Keroppi is active, swap back to custom so they can see the design
+                if (selectedFrogStyle === 'keroppi') {
+                    selectedFrogStyle = 'custom';
+                    updateFrogSelector();
+                }
+            });
+        });
+        
+        updateFrogSelector();
+
+        // Draw initial static background
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        fetchPondProverb();
+    };
+
+</script>
+</body>
+</html>
